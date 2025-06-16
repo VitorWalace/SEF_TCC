@@ -1,4 +1,4 @@
-// File: frontend/src/pages/AdminDashboard.jsx
+// File: frontend/src/pages/AdminDashboard.jsx (versão simplificada)
 
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout.jsx';
@@ -15,8 +15,7 @@ function AdminDashboard() {
                 const response = await api.get('/api/users');
                 setUsers(response.data);
             } catch (err) {
-                console.error("Erro detalhado ao buscar usuários:", err);
-                setError('Falha ao carregar os usuários. Verifique o console do navegador para mais detalhes.');
+                setError('Falha ao carregar os usuários.');
             } finally {
                 setLoading(false);
             }

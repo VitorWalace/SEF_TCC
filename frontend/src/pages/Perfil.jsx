@@ -1,8 +1,10 @@
+// File: frontend/src/pages/Perfil.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { mockUsers } from '../data/mockData.js';
+import api from '../services/api.js';
 import { EditIcon, SaveIcon, StarIcon, BriefcaseIcon, LinkedInIcon, GithubIcon, ChatIcon } from '../components/icons';
 import StatCard from '../components/StatCard.jsx';
 import SocialLink from '../components/SocialLink.jsx';
@@ -12,70 +14,95 @@ function Perfil() {
     const { user: loggedInUser, updateUser } = useAuth();
     const navigate = useNavigate();
 
-    const userToShow = userId ? mockUsers.find(u => u.id === parseInt(userId, 10)) : loggedInUser;
-    const isMyProfile = !userId || (loggedInUser && loggedInUser.id === userToShow?.id);
-
+    const [profileUser, setProfileUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({});
 
     useEffect(() => {
-        if (userToShow) {
+        const fetchProfileData = async () => {
+            const idToFetch = userId || loggedInUser?.id;
+            if (!idToFetch) {
+                setError('Não foi possível identificar o perfil a ser exibido.');
+                setLoading(false);
+                return;
+            }
+            try {
+                setLoading(true);
+                const response = await api.get(`/api/users/${idToFetch}`);
+                setProfileUser(response.data);
+            } catch (err) {
+                setError('Usuário não encontrado.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (loggedInUser) {
+            fetchProfileData();
+        }
+    }, [userId, loggedInUser]);
+
+    useEffect(() => {
+        if (profileUser) {
             setFormData({
-                name: userToShow.name || '',
-                title: userToShow.title || '',
-                bio: userToShow.bio || '',
-                isAvailable: userToShow.isAvailable || false,
-                subjects: userToShow.subjects?.join(', ') || '',
-                linkedin: userToShow.socials?.linkedin || '',
-                github: userToShow.socials?.github || '',
+                name: profileUser.name || '',
+                title: profileUser.title || '',
+                bio: profileUser.bio || '',
+                subjects: profileUser.subjects || '',
             });
         }
-    }, [userToShow, isEditing]);
+    }, [profileUser, isEditing]);
+
 
     const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSave = () => {
-        const updatedData = {
+    const handleSave = async () => {
+        if (!profileUser) return;
+        const payload = {
             name: formData.name,
             title: formData.title,
             bio: formData.bio,
-            isAvailable: formData.isAvailable,
-            subjects: formData.subjects.split(',').map(s => s.trim()).filter(Boolean),
-            socials: {
-                linkedin: formData.linkedin,
-                github: formData.github,
-            }
+            subjects: formData.subjects,
         };
-        updateUser(updatedData);
-        setIsEditing(false);
+
+        try {
+            const response = await api.put(`/api/profile/${profileUser.id}`, payload);
+            const updatedUserFromServer = response.data;
+            
+            setProfileUser(updatedUserFromServer);
+
+            if (loggedInUser.id === profileUser.id) {
+                updateUser(updatedUserFromServer);
+            }
+
+            setIsEditing(false);
+        } catch (err) {
+            console.error("Falha ao salvar o perfil", err);
+            alert("Não foi possível salvar as alterações.");
+        }
     };
+    
+    // A verificação agora é mais robusta
+    const isMyProfile = profileUser && loggedInUser && loggedInUser.id === profileUser.id;
 
-    if (!userToShow) {
-        return (
-            <Layout pageTitle="Erro">
-                <div className="text-center p-8 bg-white rounded-lg shadow-md">
-                    <h2 className="text-2xl font-bold text-red-600">Utilizador Não Encontrado</h2>
-                    <p className="mt-2 text-gray-600">O perfil que está a tentar aceder não existe.</p>
-                    <Link to="/explorar" className="mt-6 inline-block py-2 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">
-                        Voltar para a Exploração
-                    </Link>
-                </div>
-            </Layout>
-        );
-    }
-
+    if (loading) { return <Layout pageTitle="Carregando Perfil..."><div>Carregando...</div></Layout>; }
+    if (error || !profileUser) { return <Layout pageTitle="Erro"><div>{error}</div></Layout>; }
+    
     return (
-        <Layout pageTitle={isMyProfile ? "Meu Perfil" : `Perfil de ${userToShow.name}`}>
+        <Layout pageTitle={isMyProfile ? "Meu Perfil" : `Perfil de ${profileUser.name}`}>
             <div className="max-w-4xl mx-auto">
-                {/* -- Capa e Foto de Perfil -- */}
                 <div className="relative bg-white rounded-t-xl shadow-lg">
                     <img className="h-48 w-full object-cover rounded-t-xl" src="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070" alt="Imagem de capa do perfil" />
                     <div className="absolute -bottom-16 left-8">
-                        <img className="h-32 w-32 rounded-full object-cover border-4 border-white shadow-md" src={userToShow.avatarUrl} alt={`Avatar de ${userToShow.name}`} />
+                        <img className="h-32 w-32 rounded-full object-cover border-4 border-white shadow-md" src={profileUser.avatarUrl || `https://ui-avatars.com/api/?name=${profileUser.name.replace(" ", "+")}&background=random`} alt={`Avatar de ${profileUser.name}`} />
                     </div>
+                    
+                    {/* Este bloco agora deve funcionar corretamente */}
                     <div className="absolute top-4 right-4 flex gap-2">
                         {isMyProfile ? (
                             isEditing ? (
@@ -95,30 +122,48 @@ function Perfil() {
                     </div>
                 </div>
 
-                {/* -- Informações e Estatísticas -- */}
                 <div className="bg-white rounded-b-xl shadow-lg pt-20 px-8 pb-8">
                     {isEditing ? (
-                        <div className="space-y-1">
-                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="text-3xl font-bold text-gray-800 w-full border-b-2 focus:outline-none focus:border-indigo-500" />
-                            <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="text-md text-gray-500 w-full border-b-2 focus:outline-none focus:border-indigo-500" />
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-sm font-bold text-gray-500">Nome</label>
+                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="text-xl font-bold text-gray-800 w-full p-2 border rounded-md" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-bold text-gray-500">Título (Ex: Engenheiro de Software)</label>
+                                <input type="text" name="title" value={formData.title} onChange={handleInputChange} className="text-md text-gray-600 w-full p-2 border rounded-md" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-bold text-gray-500">Biografia</label>
+                                <textarea name="bio" value={formData.bio} onChange={handleInputChange} className="text-md text-gray-600 w-full p-2 border rounded-md" rows="4"></textarea>
+                            </div>
+                             <div>
+                                <label className="text-sm font-bold text-gray-500">Matérias (separadas por vírgula)</label>
+                                <input type="text" name="subjects" value={formData.subjects} onChange={handleInputChange} className="text-md text-gray-600 w-full p-2 border rounded-md" />
+                            </div>
                         </div>
                     ) : (
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800">{userToShow.name}</h1>
-                            <p className="text-md text-gray-500">{userToShow.title}</p>
+                            <h1 className="text-3xl font-bold text-gray-800">{profileUser.name}</h1>
+                            <p className="text-md text-gray-500">{profileUser.title || 'Título não preenchido'}</p>
+                            <p className="mt-4 text-gray-600">{profileUser.bio || 'Biografia não preenchida.'}</p>
+                             <div className="mt-4">
+                                <h4 className="font-semibold text-gray-800">Matérias</h4>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {/* Lógica para exibir as matérias corretamente */}
+                                    {(profileUser.subjects?.split(',') || []).map((subject, i) => subject.trim() && (
+                                        <span key={i} className="px-3 py-1 text-xs font-medium text-indigo-800 bg-indigo-100 rounded-full">
+                                            {subject.trim()}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     )}
-
-                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <StatCard icon={StarIcon} value={userToShow.stats?.rating || 0} label="Nota Média" color="bg-yellow-400" />
-                        <StatCard icon={BriefcaseIcon} value={userToShow.stats?.sessions || 0} label="Sessões Concluídas" color="bg-sky-400" />
-                        <StatCard icon={ChatIcon} value={userToShow.stats?.reviews || 0} label="Avaliações" color="bg-emerald-400" />
-                    </div>
-
-                    {/* ... (resto do JSX) ... */}
                 </div>
             </div>
         </Layout>
     );
 }
+
 export default Perfil;

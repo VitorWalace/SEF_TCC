@@ -1,16 +1,36 @@
-import React from 'react';
+// File: frontend/src/pages/Home.jsx
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import Layout from '../components/Layout.jsx';
-import UserCard from '../components/UserCard.jsx';
 import DashboardCard from '../components/DashboardCard.jsx';
-import { SearchIcon, ChatIcon, CalendarIcon } from '../components/icons';
-import { mockUsers } from '../data/mockData.js'; // **CORREÇÃO: Importa os dados do ficheiro central**
+import CourseCard from '../components/CourseCard.jsx'; // 1. Importa o CourseCard
+import { SearchIcon, BookOpenIcon, CalendarIcon } from '../components/icons';
+import api from '../services/api.js'; // 2. Importa a nossa API
 
 function Home() {
     const { user } = useAuth();
 
-    // Seleciona os primeiros 3 utilizadores da lista para destacar
-    const featuredTutors = mockUsers.slice(0, 3);
+    // 3. Estados para guardar os cursos, carregamento e erros
+    const [courses, setCourses] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // 4. useEffect para buscar os cursos do backend
+    useEffect(() => {
+        const fetchCourses = async () => {
+            try {
+                const response = await api.get('/api/courses');
+                // Pega apenas os 3 primeiros cursos para destacar
+                setCourses(response.data.slice(0, 3)); 
+            } catch (error) {
+                console.error("Erro ao buscar cursos em destaque:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCourses();
+    }, []);
 
     return (
         <Layout pageTitle="Painel de Controlo">
@@ -24,28 +44,31 @@ function Home() {
                 </p>
             </div>
 
-            {/* Cartões de Ação Rápida */}
+            {/* 5. Cartões de Ação Rápida ATUALIZADOS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <DashboardCard to="/explorar" icon={SearchIcon} title="Explorar Tutores" colorClass="bg-indigo-500 text-white">
-                    Encontre o tutor perfeito por matéria e disponibilidade.
+                <DashboardCard to="/explorar" icon={SearchIcon} title="Explorar Cursos" colorClass="bg-indigo-500 text-white">
+                    Encontre o curso perfeito para você em nossa biblioteca.
                 </DashboardCard>
-                <DashboardCard to="/chat" icon={ChatIcon} title="As suas Mensagens" colorClass="bg-emerald-500 text-white">
-                    Veja as suas conversas e continue a aprender.
+                <DashboardCard to="/my-courses" icon={BookOpenIcon} title="Meus Cursos" colorClass="bg-emerald-500 text-white">
+                    Gerencie e crie seus próprios cursos para compartilhar conhecimento.
                 </DashboardCard>
                 <DashboardCard to="/agenda" icon={CalendarIcon} title="A sua Agenda" colorClass="bg-amber-500 text-white">
-                    Organize as suas sessões de estudo e tutoria.
+                    Organize seus estudos e prazos.
                 </DashboardCard>
             </div>
 
-            {/* Tutores em Destaque */}
+            {/* 6. Seção de Cursos em Destaque */}
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Tutores em Destaque</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {/* **CORREÇÃO: Utiliza a lista de tutores em destaque** */}
-                     {featuredTutors.map(tutor => (
-                        <UserCard key={tutor.id} user={tutor} />
-                    ))}
-                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Cursos em Destaque</h2>
+                {loading ? (
+                    <p>Carregando cursos...</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {courses.map(course => (
+                            <CourseCard key={course.id} course={course} />
+                        ))}
+                    </div>
+                )}
             </div>
         </Layout>
     );

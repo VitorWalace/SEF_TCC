@@ -3,6 +3,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
+// Importações de todas as Páginas
 import Login from './pages/Login.jsx';
 import Cadastro from './pages/Cadastro.jsx';
 import EsqueceuSenha from './pages/EsqueceuSenha.jsx';
@@ -12,21 +13,26 @@ import Chat from './pages/Chat.jsx';
 import Perfil from './pages/Perfil.jsx';
 import Notificacoes from './pages/Notificacoes.jsx';
 import Agenda from './pages/Agenda.jsx';
+import MyCourses from './pages/MyCourses.jsx';
+import CreateCourse from './pages/CreateCourse.jsx';
+import CourseDetail from './pages/CourseDetail.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
+
+// Importações dos Componentes de Rota
 import ProtectedRoute from './pages/ProtectedRoute.jsx';
-import AdminDashboard from './pages/AdminDashboard.jsx'; // Importa o novo painel
-import AdminRoute from './pages/AdminRoute.jsx'; // Importa a nova rota protegida
+import AdminRoute from './pages/AdminRoute.jsx';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rotas Públicas */}
+        {/* --- Rotas Públicas --- */}
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/esqueceu-senha" element={<EsqueceuSenha />} />
         <Route path="/" element={<Login />} />
 
-        {/* Rotas Protegidas para Usuários Normais */}
+        {/* --- Rotas Protegidas para Usuários --- */}
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/explorar" element={<ProtectedRoute><Explorar /></ProtectedRoute>} />
         <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
@@ -34,8 +40,14 @@ function App() {
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
         <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+        
+        {/* --- Rotas de Cursos --- */}
+        <Route path="/my-courses" element={<ProtectedRoute><MyCourses /></ProtectedRoute>} />
+        <Route path="/create-course" element={<ProtectedRoute><CreateCourse /></ProtectedRoute>} />
+        <Route path="/edit-course/:courseId" element={<ProtectedRoute><CreateCourse /></ProtectedRoute>} />
+        <Route path="/courses/:courseId" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
 
-        {/* Rota Protegida para Administradores */}
+        {/* --- Rota Protegida para Administradores --- */}
         <Route 
           path="/admin" 
           element={
