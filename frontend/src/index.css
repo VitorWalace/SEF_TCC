@@ -1,3 +1,5 @@
+/* File: frontend/src/index.css */
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -65,4 +67,43 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Animação customizada que adicionamos */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Animações para entrada em cascata */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  /* Aplica a animação, mas a deixa 'pausada' por padrão */
+  animation: fadeInUp 0.6s ease-out forwards;
+  animation-play-state: paused;
+}
+
+/* Quando a classe 'start-animation' for adicionada, a animação começa */
+.start-animation .animate-fade-in-up {
+  animation-play-state: running;
 }

@@ -1,5 +1,10 @@
+// File: frontend/tailwind.config.js
+
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Habilita o modo escuro baseado na presença da classe 'dark' no HTML
+  darkMode: 'class',
+  
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

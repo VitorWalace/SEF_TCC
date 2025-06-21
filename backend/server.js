@@ -235,6 +235,166 @@ app.delete('/api/courses/:courseId', async (req, res) => {
 });
 
 
+// --- ROTAS DE INSCRIÇÕES (ENROLLMENTS) ---
+app.post('/api/enrollments', async (req, res) => {
+    try {
+        const { user_id, course_id } = req.body;
+        if (!user_id || !course_id) {
+            return res.status(400).json({ message: 'ID do usuário e do curso são obrigatórios.' });
+        }
+        const [newEnrollment] = await db('enrollments').insert({
+            user_id,
+            course_id,
+        }).returning('*');
+        res.status(201).json({ message: 'Inscrição realizada com sucesso!', enrollment: newEnrollment });
+    } catch (error) {
+        if (error.message.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ message: 'Usuário já inscrito neste curso.' });
+        }
+        console.error("Erro ao criar inscrição:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.get('/api/users/:userId/enrolled-courses', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const courses = await db('courses')
+            .join('enrollments', 'courses.id', '=', 'enrollments.course_id')
+            .join('users as instructor', 'courses.instructor_id', '=', 'instructor.id')
+            .where('enrollments.user_id', userId)
+            .select(
+                'courses.id',
+                'courses.title',
+                'courses.description',
+                'courses.course_image_url',
+                'instructor.name as instructor_name'
+            );
+        res.status(200).json(courses);
+    } catch (error) {
+        console.error("Erro ao buscar cursos inscritos:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.get('/api/courses/:courseId/enrollment-status/:userId', async (req, res) => {
+    try {
+        const { courseId, userId } = req.params;
+        const enrollment = await db('enrollments')
+            .where({
+                course_id: courseId,
+                user_id: userId,
+            })
+            .first();
+        res.status(200).json({ isEnrolled: !!enrollment });
+    } catch (error) {
+        console.error("Erro ao verificar status de inscrição:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+
+// --- ROTAS DE Q&A E REVIEWS ---
+app.get('/api/courses/:courseId/reviews', async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const reviews = await db('reviews')
+            .join('users', 'reviews.user_id', 'users.id')
+            .where('reviews.course_id', courseId)
+            .select('reviews.*', 'users.name as author_name')
+            .orderBy('reviews.created_at', 'desc');
+        res.status(200).json(reviews);
+    } catch (error) {
+        console.error("Erro ao buscar avaliações:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.post('/api/courses/:courseId/reviews', async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const { rating, comment, user_id } = req.body;
+        if (!rating || !user_id) {
+            return res.status(400).json({ message: 'A nota e o ID do usuário são obrigatórios.' });
+        }
+        const [newReview] = await db('reviews').insert({
+            rating,
+            comment,
+            course_id: courseId,
+            user_id,
+        }).returning('*');
+        res.status(201).json(newReview);
+    } catch (error) {
+        if (error.message.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ message: 'Você já avaliou este curso.' });
+        }
+        console.error("Erro ao postar avaliação:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.get('/api/courses/:courseId/questions', async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const questions = await db('questions')
+            .join('users', 'questions.user_id', 'users.id')
+            .where('questions.course_id', courseId)
+            .select('questions.*', 'users.name as author_name')
+            .orderBy('questions.created_at', 'desc');
+
+        for (const question of questions) {
+            question.answers = await db('answers')
+                .join('users', 'answers.user_id', 'users.id')
+                .where('answers.question_id', question.id)
+                .select('answers.*', 'users.name as author_name')
+                .orderBy('answers.created_at', 'asc');
+        }
+        res.status(200).json(questions);
+    } catch (error) {
+        console.error("Erro ao buscar perguntas:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.post('/api/courses/:courseId/questions', async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const { title, user_id } = req.body;
+        if (!title || !user_id) {
+            return res.status(400).json({ message: 'O conteúdo da pergunta e o ID do usuário são obrigatórios.' });
+        }
+        const [newQuestion] = await db('questions').insert({
+            title,
+            course_id: courseId,
+            user_id,
+        }).returning('*');
+        res.status(201).json(newQuestion);
+    } catch (error) {
+        console.error("Erro ao postar pergunta:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.post('/api/questions/:questionId/answers', async (req, res) => {
+    try {
+        const { questionId } = req.params;
+        const { body, user_id } = req.body;
+        if (!body || !user_id) {
+            return res.status(400).json({ message: 'O conteúdo da resposta e o ID do usuário são obrigatórios.' });
+        }
+        const [newAnswer] = await db('answers').insert({
+            body,
+            question_id: questionId,
+            user_id,
+        }).returning('*');
+        res.status(201).json(newAnswer);
+    } catch (error) {
+        console.error("Erro ao postar resposta:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+
 // --- ROTAS DE ADMIN ---
 app.get('/api/users', async (req, res) => {
     try {

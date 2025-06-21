@@ -18,3 +18,7 @@ export * from './ChatBubbleIcon.jsx'; // Adicionar
 export * from './UserPlusIcon.jsx'; // Adicionar
 export * from './ChevronLeftIcon.jsx';  // Adicionar
 export * from './ChevronRightIcon.jsx'; // Adicionar
+export * from './ChatBubbleLeftRightIcon.jsx';
+export * from './CheckCircleIcon.jsx';
+export * from './SunIcon.jsx';
+export * from './MoonIcon.jsx';
