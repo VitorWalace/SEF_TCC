@@ -22,3 +22,4 @@ export * from './ChatBubbleLeftRightIcon.jsx';
 export * from './CheckCircleIcon.jsx';
 export * from './SunIcon.jsx';
 export * from './MoonIcon.jsx';
+export * from './TrashIcon.jsx';

@@ -1,4 +1,4 @@
-// File: frontend/src/pages/Login.jsx (VERSÃO FINAL E CORRETA)
+// File: frontend/src/pages/Login.jsx
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -8,7 +8,7 @@ import { FormInput } from '../components/FormInput.jsx';
 import { MailIcon } from '../components/icons/MailIcon.jsx';
 import { LockIcon } from '../components/icons/LockIcon.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import api from '../services/api.js';
+import api from '../services/api.js'; // Importa a nossa API
 
 function Login() {
   const navigate = useNavigate();
@@ -18,26 +18,27 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Função de submit que chama a API de verdade
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Envia as credenciais para o backend
+      // Faz a chamada POST para a rota de login do backend
       const response = await api.post('/api/auth/login', { email, password });
 
-      // Pega o usuário e o token da resposta
+      // Pega o usuário e o token da resposta do backend
       const { user, token } = response.data;
 
-      // Chama a função de login do nosso AuthContext
+      // Usa a função de login do nosso AuthContext
       login(user, token);
       
       // Navega para a página principal
       navigate('/home');
 
     } catch (err) {
-      // Se o backend retornar um erro, ele será exibido aqui
+      // Se o backend retornar um erro (como 401), ele será exibido aqui
       const message = err.response?.data?.message || 'Email ou senha inválidos. Verifique suas credenciais.';
       setError(message);
     } finally {
