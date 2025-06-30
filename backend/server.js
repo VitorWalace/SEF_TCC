@@ -27,14 +27,15 @@ app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
+  destination: function (req, file, cb) { cb(null, 'uploads/') },
+  filename: function (req, file, cb) { cb(null, Date.now() + path.extname(file.originalname)) }
 });
 const upload = multer({ storage: storage });
+
+io.on('connection', (socket) => {
+    socket.on('join_room', (room) => socket.join(room));
+    socket.on('send_message', (data) => socket.to(data.room).emit('receive_message', data));
+});
 
 // --- LÓGICA DO SOCKET.IO ---
 io.on('connection', (socket) => {
@@ -125,17 +126,56 @@ app.put('/api/profile/:id', async (req, res) => {
 });
 
 
-// --- ROTAS DE CURSOS ---
+// --- ROTAS DE CURSOS (ESTRUTURA DE MÓDULOS E AULAS) ---
 app.post('/api/courses', async (req, res) => {
     try {
-        const { title, description, instructor_id, course_image_url, content } = req.body;
+        const { title, description, instructor_id, course_image_url } = req.body;
         if (!title || !description || !instructor_id) {
             return res.status(400).json({ message: 'Título, descrição e ID do instrutor são obrigatórios.' });
         }
-        const [newCourseId] = await db('courses').insert({ title, description, instructor_id, course_image_url, content });
-        res.status(201).json({ message: 'Curso criado com sucesso!', courseId: newCourseId });
+        const [newCourse] = await db('courses').insert({
+            title,
+            description,
+            instructor_id,
+            course_image_url,
+        }).returning('*');
+        res.status(201).json(newCourse);
     } catch (error) {
+        console.error("Erro ao criar curso:", error);
         res.status(500).json({ message: 'Erro interno ao criar o curso.' });
+    }
+});
+
+app.post('/api/courses/:courseId/modules', async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const { title, order } = req.body;
+        const [newModule] = await db('modules').insert({
+            title,
+            order,
+            course_id: parseInt(courseId, 10),
+        }).returning('*');
+        res.status(201).json(newModule);
+    } catch (error) {
+        console.error("Erro ao criar módulo:", error);
+        res.status(500).json({ message: 'Erro ao criar módulo.' });
+    }
+});
+
+app.post('/api/modules/:moduleId/lessons', async (req, res) => {
+    try {
+        const { moduleId } = req.params;
+        const { title, content, order } = req.body;
+        const [newLesson] = await db('lessons').insert({
+            title,
+            content,
+            order,
+            module_id: parseInt(moduleId, 10),
+        }).returning('*');
+        res.status(201).json(newLesson);
+    } catch (error) {
+        console.error("Erro ao criar aula:", error);
+        res.status(500).json({ message: 'Erro ao criar aula.' });
     }
 });
 
@@ -151,44 +191,28 @@ app.get('/api/courses', async (req, res) => {
 app.get('/api/courses/:courseId', async (req, res) => {
     try {
         const { courseId } = req.params;
-        const course = await db('courses').join('users', 'courses.instructor_id', '=', 'users.id').where('courses.id', courseId).select('courses.*', 'users.name as instructor_name').first();
-        if (course) {
-            res.status(200).json(course);
-        } else {
-            res.status(404).json({ message: 'Curso não encontrado.' });
+        const course = await db('courses').where({ id: courseId }).first();
+        if (!course) {
+            return res.status(404).json({ message: 'Curso não encontrado.' });
         }
+        const modules = await db('modules').where({ course_id: courseId }).orderBy('order', 'asc');
+        for (const module of modules) {
+            module.lessons = await db('lessons').where({ module_id: module.id }).orderBy('order', 'asc');
+        }
+        course.modules = modules;
+        res.status(200).json(course);
     } catch (error) {
+        console.error("Erro ao buscar detalhes do curso:", error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
 
-app.put('/api/courses/:courseId', async (req, res) => {
+app.delete('/api/courses', async (req, res) => {
     try {
-        const { courseId } = req.params;
-        const { title, description, course_image_url, content } = req.body;
-        const updatedCount = await db('courses').where({ id: courseId }).update({ title, description, course_image_url, content });
-        if (updatedCount > 0) {
-            const updatedCourse = await db('courses').where({ id: courseId }).first();
-            res.status(200).json(updatedCourse);
-        } else {
-            res.status(404).json({ message: 'Curso não encontrado.' });
-        }
+        await db('courses').truncate();
+        res.status(200).json({ message: 'Todos os cursos foram deletados com sucesso!' });
     } catch (error) {
-        res.status(500).json({ message: 'Erro interno ao atualizar o curso.' });
-    }
-});
-
-app.delete('/api/courses/:courseId', async (req, res) => {
-    try {
-        const { courseId } = req.params;
-        const deletedCount = await db('courses').where({ id: courseId }).del();
-        if (deletedCount > 0) {
-            res.status(200).json({ message: 'Curso excluído com sucesso.' });
-        } else {
-            res.status(404).json({ message: 'Curso não encontrado.' });
-        }
-    } catch (error) {
-        res.status(500).json({ message: 'Erro interno ao excluir o curso.' });
+        res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
 
@@ -229,8 +253,18 @@ app.get('/api/courses/:courseId/enrollment-status/:userId', async (req, res) => 
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
-
-
+// Rota para buscar os cursos CRIADOS por um usuário específico
+app.get('/api/users/:userId/courses', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        // Busca na tabela 'courses' todos os cursos onde o 'instructor_id' é igual ao 'userId'
+        const courses = await db('courses').where({ instructor_id: userId });
+        res.status(200).json(courses);
+    } catch (error) {
+        console.error("Erro ao buscar os cursos do usuário:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
 // --- ROTAS DE NOTIFICAÇÕES ---
 app.get('/api/notifications/:userId', async (req, res) => {
     try {
@@ -464,7 +498,36 @@ app.get('/api/make-admin/:id', async (req, res) => {
         res.status(500).json({ message: 'Erro ao tornar usuário admin.'});
     }
 });
+// Rota para EXCLUIR um curso específico
+app.delete('/api/courses/:courseId', async (req, res) => {
+    try {
+        const { courseId } = req.params;
+        const deletedCount = await db('courses').where({ id: courseId }).del();
 
+        if (deletedCount > 0) {
+            res.status(200).json({ message: 'Curso excluído com sucesso.' });
+        } else {
+            res.status(404).json({ message: 'Curso não encontrado.' });
+        }
+    } catch (error) {
+        console.error("Erro ao excluir curso:", error);
+        res.status(500).json({ message: 'Erro interno ao excluir o curso.' });
+    }
+});
+
+// V----------- NOVA ROTA PARA O ADMIN DELETAR TODOS OS CURSOS -----------V
+app.delete('/api/courses', async (req, res) => {
+    // Em um app real, aqui teríamos uma verificação para garantir que SÓ um admin pode fazer isso.
+    try {
+        // O .truncate() é mais rápido que o .del() para apagar todos os registros de uma tabela.
+        await db('courses').truncate();
+        res.status(200).json({ message: 'Todos os cursos foram deletados com sucesso!' });
+    } catch (error) {
+        console.error("Erro ao deletar todos os cursos:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+// A---------------------------------------------------------------------A
 
 // --- INICIA O SERVIDOR ---
 server.listen(PORT, () => {

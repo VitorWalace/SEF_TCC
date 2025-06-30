@@ -10,9 +10,13 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Função para buscar a contagem de notificações não lidas
   const fetchUnreadCount = async (userId) => {
+      if (!userId) return;
       try {
           const response = await api.get(`/api/notifications/${userId}/unread-count`);
+          // AQUI ESTÁ A CORREÇÃO:
+          // Usamos parseInt() para garantir que o valor seja sempre um número.
           setUnreadCount(parseInt(response.data.unreadCount, 10));
       } catch (error) {
           console.error("Falha ao buscar contagem de notificações", error);
@@ -27,7 +31,7 @@ export function AuthProvider({ children }) {
       const userData = JSON.parse(storedUser);
       setUser(userData);
       api.defaults.headers.authorization = `Bearer ${storedToken}`;
-      fetchUnreadCount(userData.id);
+      fetchUnreadCount(userData.id); 
     }
     setLoading(false); 
   }, []);

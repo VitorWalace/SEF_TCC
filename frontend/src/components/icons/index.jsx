@@ -23,3 +23,5 @@ export * from './CheckCircleIcon.jsx';
 export * from './SunIcon.jsx';
 export * from './MoonIcon.jsx';
 export * from './TrashIcon.jsx';
+export * from './PlusIcon.jsx';
+export * from './ChevronDownIcon.jsx';
