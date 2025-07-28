@@ -12,12 +12,12 @@ import Explorar from './pages/Explorar.jsx';
 import Chat from './pages/Chat.jsx';
 import Perfil from './pages/Perfil.jsx';
 import Notificacoes from './pages/Notificacoes.jsx';
-import Agenda from './pages/Agenda.jsx';
+// A linha 'import Agenda from './pages/Agenda.jsx';' foi removida
 import MyCourses from './pages/MyCourses.jsx';
 import CourseDetail from './pages/CourseDetail.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 
-// AQUI ESTÁ A CORREÇÃO: Importa o nosso novo construtor de cursos
+// Importa o nosso novo construtor de cursos
 import CreateOrEditCourse from './pages/CreateCourse.jsx'; 
 
 // Importações dos Componentes de Rota
@@ -42,7 +42,7 @@ function App() {
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/chat/:recipientId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
-        <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+        
         
         {/* --- Rotas de Cursos --- */}
         <Route path="/my-courses" element={<ProtectedRoute><MyCourses /></ProtectedRoute>} />

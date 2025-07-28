@@ -9,6 +9,8 @@ const path = require('path');
 const http = require('http');
 const { Server } = require("socket.io");
 const knexConfig = require('./knexfile.js');
+const cloudinary = require('./cloudinary'); // Importa a configuração do Cloudinary
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,30 +28,30 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) { cb(null, 'uploads/') },
-  filename: function (req, file, cb) { cb(null, Date.now() + path.extname(file.originalname)) }
+// --- CONFIGURAÇÃO DE UPLOAD PARA O CLOUDINARY ---
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'saber-em-fluxo-uploads',
+    allowed_formats: ['jpeg', 'png', 'jpg', 'mp4', 'pdf'],
+  },
 });
 const upload = multer({ storage: storage });
 
-io.on('connection', (socket) => {
-    socket.on('join_room', (room) => socket.join(room));
-    socket.on('send_message', (data) => socket.to(data.room).emit('receive_message', data));
-});
 
 // --- LÓGICA DO SOCKET.IO ---
 io.on('connection', (socket) => {
-    console.log(`Usuário conectado: ${socket.id}`);
+    console.log(`Utilizador conectado: ${socket.id}`);
     socket.on('join_room', (room) => socket.join(room));
     socket.on('send_message', (data) => socket.to(data.room).emit('receive_message', data));
-    socket.on('disconnect', () => console.log(`Usuário desconectado: ${socket.id}`));
+    socket.on('disconnect', () => console.log(`Utilizador desconectado: ${socket.id}`));
 });
 
 
 // --- ROTA DE UPLOAD ---
-app.post('/api/upload', upload.single('courseImage'), (req, res) => {
-  if (!req.file) return res.status(400).send({ message: 'Nenhum arquivo foi enviado.' });
-  res.status(200).json({ imageUrl: `http://localhost:3001/uploads/${req.file.filename}` });
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Nenhum ficheiro foi enviado.' });
+  res.status(200).json({ fileUrl: req.file.path });
 });
 
 
@@ -68,7 +70,7 @@ app.post('/api/auth/register', async (req, res) => {
         const userData = { id: user.id, name: user.name, email: user.email, role: user.role };
         res.status(201).json({ user: userData, token: 'jwt_token_simulado_12345' });
     } catch (error) {
-        console.error('Erro no registro:', error);
+        console.error('Erro no registo:', error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
@@ -98,7 +100,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 
-// --- ROTAS DE USUÁRIO/PERFIL ---
+// --- ROTAS DE UTILIZADOR/PERFIL ---
 app.get('/api/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -106,7 +108,7 @@ app.get('/api/users/:id', async (req, res) => {
         if (user) {
             res.status(200).json(user);
         } else {
-            res.status(404).json({ message: 'Usuário não encontrado.' });
+            res.status(404).json({ message: 'Utilizador não encontrado.' });
         }
     } catch (error) {
         res.status(500).json({ message: 'Erro interno no servidor.' });
@@ -130,9 +132,6 @@ app.put('/api/profile/:id', async (req, res) => {
 app.post('/api/courses', async (req, res) => {
     try {
         const { title, description, instructor_id, course_image_url } = req.body;
-        if (!title || !description || !instructor_id) {
-            return res.status(400).json({ message: 'Título, descrição e ID do instrutor são obrigatórios.' });
-        }
         const [newCourse] = await db('courses').insert({
             title,
             description,
@@ -191,10 +190,16 @@ app.get('/api/courses', async (req, res) => {
 app.get('/api/courses/:courseId', async (req, res) => {
     try {
         const { courseId } = req.params;
-        const course = await db('courses').where({ id: courseId }).first();
+        const course = await db('courses')
+            .join('users', 'courses.instructor_id', 'users.id')
+            .where('courses.id', courseId)
+            .select('courses.*', 'users.name as instructor_name')
+            .first();
+            
         if (!course) {
             return res.status(404).json({ message: 'Curso não encontrado.' });
         }
+        
         const modules = await db('modules').where({ course_id: courseId }).orderBy('order', 'asc');
         for (const module of modules) {
             module.lessons = await db('lessons').where({ module_id: module.id }).orderBy('order', 'asc');
@@ -207,39 +212,45 @@ app.get('/api/courses/:courseId', async (req, res) => {
     }
 });
 
-app.delete('/api/courses', async (req, res) => {
+app.get('/api/users/:userId/courses', async (req, res) => {
     try {
-        await db('courses').truncate();
-        res.status(200).json({ message: 'Todos os cursos foram deletados com sucesso!' });
+        const { userId } = req.params;
+        const courses = await db('courses').where({ instructor_id: userId });
+        res.status(200).json(courses);
     } catch (error) {
+        console.error("Erro ao buscar os cursos do utilizador:", error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
 
 
 // --- ROTAS DE INSCRIÇÕES (ENROLLMENTS) ---
-app.get('/api/users/:userId/enrolled-courses', async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const courses = await db('courses').join('enrollments', 'courses.id', '=', 'enrollments.course_id').join('users as instructor', 'courses.instructor_id', '=', 'instructor.id').where('enrollments.user_id', userId).select('courses.id', 'courses.title', 'courses.description', 'courses.course_image_url', 'instructor.name as instructor_name');
-        res.status(200).json(courses);
-    } catch (error) {
-        res.status(500).json({ message: 'Erro interno no servidor.' });
-    }
-});
-
 app.post('/api/enrollments', async (req, res) => {
     try {
         const { user_id, course_id } = req.body;
         if (!user_id || !course_id) {
-            return res.status(400).json({ message: 'ID do usuário e do curso são obrigatórios.' });
+            return res.status(400).json({ message: 'ID do utilizador e do curso são obrigatórios.' });
         }
         const [newEnrollment] = await db('enrollments').insert({ user_id, course_id }).returning('*');
         res.status(201).json({ message: 'Inscrição realizada com sucesso!', enrollment: newEnrollment });
     } catch (error) {
         if (error.message.includes('UNIQUE constraint failed')) {
-            return res.status(409).json({ message: 'Usuário já inscrito neste curso.' });
+            return res.status(409).json({ message: 'Utilizador já inscrito neste curso.' });
         }
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+});
+
+app.get('/api/users/:userId/enrolled-courses', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const courses = await db('courses')
+            .join('enrollments', 'courses.id', '=', 'enrollments.course_id')
+            .join('users as instructor', 'courses.instructor_id', '=', 'instructor.id')
+            .where('enrollments.user_id', userId)
+            .select('courses.id', 'courses.title', 'courses.description', 'courses.course_image_url', 'instructor.name as instructor_name');
+        res.status(200).json(courses);
+    } catch (error) {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
@@ -253,18 +264,8 @@ app.get('/api/courses/:courseId/enrollment-status/:userId', async (req, res) => 
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
-// Rota para buscar os cursos CRIADOS por um usuário específico
-app.get('/api/users/:userId/courses', async (req, res) => {
-    try {
-        const { userId } = req.params;
-        // Busca na tabela 'courses' todos os cursos onde o 'instructor_id' é igual ao 'userId'
-        const courses = await db('courses').where({ instructor_id: userId });
-        res.status(200).json(courses);
-    } catch (error) {
-        console.error("Erro ao buscar os cursos do usuário:", error);
-        res.status(500).json({ message: 'Erro interno no servidor.' });
-    }
-});
+
+
 // --- ROTAS DE NOTIFICAÇÕES ---
 app.get('/api/notifications/:userId', async (req, res) => {
     try {
@@ -313,7 +314,7 @@ app.post('/api/courses/:courseId/reviews', async (req, res) => {
         const { courseId } = req.params;
         const { rating, comment, user_id } = req.body;
         if (!rating || !user_id) {
-            return res.status(400).json({ message: 'A nota e o ID do usuário são obrigatórios.' });
+            return res.status(400).json({ message: 'A nota e o ID do utilizador são obrigatórios.' });
         }
         const course = await db('courses').where({ id: courseId }).first();
         if (!course) {
@@ -367,7 +368,7 @@ app.post('/api/courses/:courseId/questions', async (req, res) => {
         const { courseId } = req.params;
         const { title, user_id } = req.body;
         if (!title || !user_id) {
-            return res.status(400).json({ message: 'O conteúdo da pergunta e o ID do usuário são obrigatórios.' });
+            return res.status(400).json({ message: 'O conteúdo da pergunta e o ID do utilizador são obrigatórios.' });
         }
         const [newQuestion] = await db('questions').insert({ title, course_id: courseId, user_id }).returning('*');
         res.status(201).json(newQuestion);
@@ -381,7 +382,7 @@ app.post('/api/questions/:questionId/answers', async (req, res) => {
         const { questionId } = req.params;
         const { body, user_id } = req.body;
         if (!body || !user_id) {
-            return res.status(400).json({ message: 'O conteúdo da resposta e o ID do usuário são obrigatórios.' });
+            return res.status(400).json({ message: 'O conteúdo da resposta e o ID do utilizador são obrigatórios.' });
         }
         const [newAnswer] = await db('answers').insert({ body, question_id: questionId, user_id }).returning('*');
         res.status(201).json(newAnswer);
@@ -397,10 +398,8 @@ app.get('/api/chat/conversations/:userId', async (req, res) => {
         const { userId } = req.params;
         const sentTo = db('messages').where('sender_id', userId).distinct('recipient_id as id');
         const receivedFrom = db('messages').where('recipient_id', userId).distinct('sender_id as id');
-
         const partnerIds = await sentTo.union(receivedFrom);
         const ids = partnerIds.map(p => p.id);
-
         const users = await db('users').whereIn('id', ids).select('id', 'name', 'avatarUrl');
         res.status(200).json(users);
     } catch (error) {
@@ -428,7 +427,6 @@ app.post('/api/chat/messages', async (req, res) => {
             return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
         }
         const [newMessage] = await db('messages').insert({ sender_id, recipient_id, body }).returning('*');
-        
         const sender = await db('users').where({ id: sender_id }).first();
         if (sender) {
             await db('notifications').insert({
@@ -438,7 +436,6 @@ app.post('/api/chat/messages', async (req, res) => {
                 link_to: `/chat/${sender_id}`
             });
         }
-        
         res.status(201).json(newMessage);
     } catch (error) {
         res.status(500).json({ message: 'Erro interno no servidor.' });
@@ -457,7 +454,7 @@ app.get('/api/users/search', async (req, res) => {
             .select('id', 'name', 'avatarUrl');
         res.status(200).json(users);
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao pesquisar usuários.' });
+        res.status(500).json({ message: 'Erro ao pesquisar utilizadores.' });
     }
 });
 
@@ -481,7 +478,7 @@ app.get('/api/users', async (req, res) => {
         const users = await db('users').select('id', 'name', 'email', 'role', 'created_at');
         res.status(200).json(users);
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao buscar usuários.', error });
+        res.status(500).json({ message: 'Erro ao buscar utilizadores.', error });
     }
 });
 
@@ -490,36 +487,17 @@ app.get('/api/make-admin/:id', async (req, res) => {
         const { id } = req.params;
         const updatedCount = await db('users').where({ id: id }).update({ role: 'admin' });
         if (updatedCount > 0) {
-            res.status(200).send(`Usuário com ID ${id} agora é admin! Faça logout e login novamente.`);
+            res.status(200).send(`Utilizador com ID ${id} agora é admin! Faça logout e login novamente.`);
         } else {
-            res.status(404).send(`Usuário com ID ${id} não encontrado.`);
+            res.status(404).send(`Utilizador com ID ${id} não encontrado.`);
         }
     } catch (error) {
-        res.status(500).json({ message: 'Erro ao tornar usuário admin.'});
-    }
-});
-// Rota para EXCLUIR um curso específico
-app.delete('/api/courses/:courseId', async (req, res) => {
-    try {
-        const { courseId } = req.params;
-        const deletedCount = await db('courses').where({ id: courseId }).del();
-
-        if (deletedCount > 0) {
-            res.status(200).json({ message: 'Curso excluído com sucesso.' });
-        } else {
-            res.status(404).json({ message: 'Curso não encontrado.' });
-        }
-    } catch (error) {
-        console.error("Erro ao excluir curso:", error);
-        res.status(500).json({ message: 'Erro interno ao excluir o curso.' });
+        res.status(500).json({ message: 'Erro ao tornar utilizador admin.'});
     }
 });
 
-// V----------- NOVA ROTA PARA O ADMIN DELETAR TODOS OS CURSOS -----------V
 app.delete('/api/courses', async (req, res) => {
-    // Em um app real, aqui teríamos uma verificação para garantir que SÓ um admin pode fazer isso.
     try {
-        // O .truncate() é mais rápido que o .del() para apagar todos os registros de uma tabela.
         await db('courses').truncate();
         res.status(200).json({ message: 'Todos os cursos foram deletados com sucesso!' });
     } catch (error) {
@@ -527,9 +505,9 @@ app.delete('/api/courses', async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 });
-// A---------------------------------------------------------------------A
+
 
 // --- INICIA O SERVIDOR ---
 server.listen(PORT, () => {
-    console.log(`Servidor rodando e ouvindo na porta ${PORT}`);
+  console.log(`Servidor a rodar e a ouvir na porta ${PORT}`);
 });

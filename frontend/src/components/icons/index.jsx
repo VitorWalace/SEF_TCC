@@ -25,3 +25,4 @@ export * from './MoonIcon.jsx';
 export * from './TrashIcon.jsx';
 export * from './PlusIcon.jsx';
 export * from './ChevronDownIcon.jsx';
+export * from './XMarkIcon.jsx';

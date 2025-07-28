@@ -6,13 +6,18 @@ import Layout from '../components/Layout.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../services/api.js';
 import { TrashIcon } from '../components/icons';
+import Modal from '../components/Modal.jsx';
 
 function MyCourses() {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [courseToDelete, setCourseToDelete] = useState(null);
+
     const { user } = useAuth();
     const navigate = useNavigate();
 
+    // AQUI ESTÁ A LÓGICA QUE ESTAVA FALTANDO, AGORA RESTAURADA
     useEffect(() => {
         if (user) {
             setLoading(true);
@@ -29,20 +34,21 @@ function MyCourses() {
         }
     }, [user]);
 
-    // Função para deletar um curso
-    const handleDeleteCourse = async (courseId) => {
-        // Pede confirmação ao usuário
-        if (window.confirm('Tem certeza que deseja excluir este curso? Esta ação não pode ser desfeita.')) {
-            try {
-                // Chama a rota DELETE na API com o ID do curso
-                await api.delete(`/api/courses/${courseId}`);
-                
-                // Atualiza a tela instantaneamente removendo o curso da lista
-                setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
-            } catch (error) {
-                console.error("Falha ao excluir o curso:", error);
-                alert('Ocorreu um erro ao tentar excluir o curso.');
-            }
+    const openDeleteModal = (course) => {
+        setCourseToDelete(course);
+        setIsDeleteModalOpen(true);
+    };
+    
+    const handleDeleteCourse = async () => {
+        if (!courseToDelete) return;
+        try {
+            await api.delete(`/api/courses/${courseToDelete.id}`);
+            setCourses(prevCourses => prevCourses.filter(course => course.id !== courseToDelete.id));
+            setIsDeleteModalOpen(false);
+            setCourseToDelete(null);
+        } catch (error) {
+            console.error("Falha ao excluir o curso:", error);
+            alert('Ocorreu um erro ao tentar excluir o curso.');
         }
     };
 
@@ -52,6 +58,24 @@ function MyCourses() {
 
     return (
         <Layout pageTitle="Meus Cursos">
+            {isDeleteModalOpen && (
+                <Modal title="Confirmar Exclusão" onClose={() => setIsDeleteModalOpen(false)}>
+                    <p className="text-gray-600 dark:text-gray-300">
+                        Você tem certeza que deseja excluir o curso permanentemente?
+                        <br />
+                        <strong className="font-bold">{courseToDelete?.title}</strong>
+                    </p>
+                    <div className="flex justify-end gap-4 mt-6">
+                        <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
+                            Cancelar
+                        </button>
+                        <button onClick={handleDeleteCourse} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700">
+                            Sim, Excluir
+                        </button>
+                    </div>
+                </Modal>
+            )}
+
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Seus Cursos Criados</h2>
                 <Link
@@ -79,8 +103,8 @@ function MyCourses() {
                                         Editar
                                     </button>
                                     <button 
-                                        onClick={() => handleDeleteCourse(course.id)}
-                                        className="px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-md hover:bg-red-600 transition-colors"
+                                        onClick={() => openDeleteModal(course)}
+                                        className="p-1.5 bg-red-500 text-white rounded-md hover:bg-red-600"
                                     >
                                         <TrashIcon className="w-4 h-4" />
                                     </button>

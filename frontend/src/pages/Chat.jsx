@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import api from '../services/api.js';
 import io from 'socket.io-client';
 import { PaperAirplaneIcon, TrashIcon, SearchIcon } from '../components/icons';
+import DeleteModal from '../components/DeleteModal.jsx';
 
 const socket = io('http://localhost:3001');
 
@@ -22,6 +23,8 @@ function Chat() {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [conversationToDelete, setConversationToDelete] = useState(null);
     const messagesEndRef = useRef(null);
 
     // Efeito para buscar as conversas iniciais
@@ -54,9 +57,12 @@ function Chat() {
     // Efeito para buscar as mensagens da conversa ativa e se conectar à sala do socket
     useEffect(() => {
         if (activeConversation && user) {
-            api.get(`/api/chat/messages/${user.id}/${activeConversation.id}`).then(response => {
-                setMessages(response.data);
-            });
+            api.get(`/api/chat/messages/${user.id}/${activeConversation.id}`)
+                .then(response => {
+                    setMessages(response.data);
+                })
+                .catch(err => console.error("Erro ao buscar mensagens", err));
+            
             const roomName = [user.id, activeConversation.id].sort().join('-');
             socket.emit('join_room', roomName);
         } else {
@@ -75,7 +81,7 @@ function Chat() {
         return () => socket.off('receive_message', handleReceiveMessage);
     }, [activeConversation]);
 
-    // Efeito para pesquisar usuários
+    // Efeito para pesquisar utilizadores
     useEffect(() => {
         if (searchTerm.trim() !== '') {
             api.get(`/api/users/search?q=${searchTerm}&currentUserId=${user.id}`)
@@ -109,18 +115,28 @@ function Chat() {
         setMessages(prev => [...prev, { ...payload, created_at: new Date().toISOString() }]);
         setNewMessage('');
     };
+
+    const openDeleteModal = (conversation) => {
+        setConversationToDelete(conversation);
+        setIsDeleteModalOpen(true);
+    };
+
+    const closeDeleteModal = () => {
+        setConversationToDelete(null);
+        setIsDeleteModalOpen(false);
+    };
     
-    const handleDeleteConversation = async (partnerId) => {
-        if (window.confirm('Tem certeza que deseja apagar todo o histórico desta conversa?')) {
-            try {
-                await api.delete(`/api/chat/conversations/${user.id}/${partnerId}`);
-                setConversations(prev => prev.filter(c => c.id !== partnerId));
-                if (activeConversation?.id === partnerId) {
-                    setActiveConversation(null);
-                }
-            } catch (err) {
-                alert('Erro ao apagar a conversa.');
+    const handleDeleteConversation = async () => {
+        if (!conversationToDelete || !user) return;
+        try {
+            await api.delete(`/api/chat/conversations/${user.id}/${conversationToDelete.id}`);
+            setConversations(prev => prev.filter(c => c.id !== conversationToDelete.id));
+            if (activeConversation?.id === conversationToDelete.id) {
+                setActiveConversation(null);
             }
+            closeDeleteModal();
+        } catch (err) {
+            alert('Erro ao apagar a conversa.');
         }
     };
 
@@ -130,12 +146,19 @@ function Chat() {
         navigate(`/chat/${partner.id}`);
     };
     
-    if (loading) return <Layout pageTitle="Chat"><div>Carregando...</div></Layout>;
+    if (loading) return <Layout pageTitle="Chat"><div>A carregar...</div></Layout>;
 
     return (
         <Layout pageTitle="Chat">
+            {isDeleteModalOpen && (
+                <DeleteModal
+                    title="Excluir Conversa"
+                    message={`Tem a certeza de que quer apagar permanentemente o seu histórico de conversa com ${conversationToDelete?.name}?`}
+                    onConfirm={handleDeleteConversation}
+                    onCancel={closeDeleteModal}
+                />
+            )}
             <div className="flex h-[calc(100vh-120px)] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border dark:border-gray-700">
-                
                 <aside className="w-full md:w-1/3 border-r dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-800">
                     <header className="p-4 border-b dark:border-gray-700 flex-shrink-0">
                         <div className="relative">
@@ -171,7 +194,7 @@ function Chat() {
                                     <div className="ml-4">
                                         <p className="font-semibold text-gray-900 dark:text-gray-200">{convo.name}</p>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteConversation(convo.id); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={(e) => { e.stopPropagation(); openDeleteModal(convo); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <TrashIcon className="w-5 h-5" />
                                     </button>
                                 </div>

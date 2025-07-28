@@ -7,15 +7,16 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { 
     HomeIcon, 
     SearchIcon, 
-    ChatIcon, 
+    ChatBubbleLeftRightIcon, // Ícone de chat melhorado
     BellIcon, 
     UserCircleIcon, 
     LogoutIcon, 
     CalendarIcon,
-    BriefcaseIcon,
-    BookOpenIcon 
+    BookOpenIcon, // Ícone para "Meus Cursos"
+    BriefcaseIcon
 } from './icons';
 
+// Componente para um item de navegação reutilizável
 const NavItem = ({ to, icon: Icon, children, badgeCount }) => (
   <NavLink
     to={to}
@@ -49,9 +50,8 @@ function Sidebar() {
         <NavItem to="/home" icon={HomeIcon}>Página Principal</NavItem>
         <NavItem to="/explorar" icon={SearchIcon}>Explorar Cursos</NavItem>
         <NavItem to="/my-courses" icon={BookOpenIcon}>Meus Cursos</NavItem>
-        <NavItem to="/chat" icon={ChatIcon}>Chat</NavItem>
+        <NavItem to="/chat" icon={ChatBubbleLeftRightIcon}>Chat</NavItem>
         <NavItem to="/notificacoes" icon={BellIcon} badgeCount={unreadCount}>Notificações</NavItem>
-        <NavItem to="/agenda" icon={CalendarIcon}>A minha Agenda</NavItem>
         <NavItem to="/perfil" icon={UserCircleIcon}>Meu Perfil</NavItem>
 
         {user && user.role === 'admin' && (

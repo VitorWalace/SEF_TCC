@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout.jsx';
 import api from '../services/api.js';
-import { TrashIcon } from '../components/icons'; // Usaremos o ícone de lixeira
+import { TrashIcon } from '../components/icons';
 
 function AdminDashboard() {
     const [users, setUsers] = useState([]);
@@ -13,39 +13,37 @@ function AdminDashboard() {
     useEffect(() => {
         api.get('/api/users')
             .then(response => setUsers(response.data))
-            .catch(err => setError('Falha ao carregar os usuários.'))
+            .catch(err => setError('Falha ao carregar os utilizadores.'))
             .finally(() => setLoading(false));
     }, []);
 
-    // Função para deletar todos os cursos
     const handleDeleteAllCourses = async () => {
-        // Pede uma dupla confirmação, pois esta é uma ação perigosa
-        if (window.confirm('TEM CERTEZA? Esta ação apagará TODOS os cursos permanentemente e não pode ser desfeita.')) {
+        if (window.confirm('TEM A CERTEZA? Esta ação apagará TODOS os cursos permanentemente e não pode ser desfeita.')) {
             if (window.confirm('Confirmação final: apagar TODOS os cursos?')) {
                 try {
                     const response = await api.delete('/api/courses');
-                    alert(response.data.message); // Mostra a mensagem de sucesso
+                    alert(response.data.message);
                 } catch (err) {
-                    console.error("Falha ao deletar os cursos:", err);
+                    console.error("Falha ao apagar os cursos:", err);
                     alert('Ocorreu um erro ao tentar apagar os cursos.');
                 }
             }
         }
     };
 
-    if (loading) { return <Layout pageTitle="Painel do Admin"><div>Carregando...</div></Layout>; }
+    if (loading) { return <Layout pageTitle="Painel do Admin"><div>A carregar...</div></Layout>; }
     if (error) { return <Layout pageTitle="Painel do Admin"><div className="text-red-500">{error}</div></Layout>; }
 
     return (
         <Layout pageTitle="Painel do Administrador">
             <div className="space-y-8">
-                {/* Seção de Gerenciamento de Conteúdo */}
+                {/* Secção de Gestão de Conteúdo */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Gerenciamento de Conteúdo</h2>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Gestão de Conteúdo</h2>
                     <div className="p-4 border border-red-500/30 rounded-lg bg-red-50 dark:bg-red-900/20">
                         <h3 className="font-bold text-red-800 dark:text-red-300">Zona de Perigo</h3>
                         <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                            A ação abaixo é irreversível. Tenha certeza do que está a fazer.
+                            A ação abaixo é irreversível. Tenha a certeza do que está a fazer.
                         </p>
                         <button
                             onClick={handleDeleteAllCourses}
@@ -57,9 +55,9 @@ function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* Seção de Lista de Usuários */}
+                {/* Secção da Lista de Utilizadores */}
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md">
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Lista de Usuários</h2>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Lista de Utilizadores do Sistema</h2>
                     <div className="overflow-x-auto">
                         <table className="min-w-full">
                             <thead className="bg-gray-100 dark:bg-gray-700">
@@ -78,11 +76,7 @@ function AdminDashboard() {
                                         <td className="py-3 px-4">{user.name}</td>
                                         <td className="py-3 px-4">{user.email}</td>
                                         <td className="py-3 px-4">
-                                            <span className={`px-2 py-1 text-xs font-bold leading-none rounded-full ${
-                                                user.role === 'admin' 
-                                                ? 'bg-green-200 text-green-800' 
-                                                : 'bg-indigo-200 text-indigo-800'
-                                            }`}>
+                                            <span className={`px-2 py-1 text-xs font-bold leading-none rounded-full ${user.role === 'admin' ? 'bg-green-200 text-green-800' : 'bg-indigo-200 text-indigo-800'}`}>
                                                 {user.role}
                                             </span>
                                         </td>
