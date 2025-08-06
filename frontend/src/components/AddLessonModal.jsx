@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import MDEditor from '@uiw/react-md-editor';
+import { XMarkIcon } from './icons';
 
 function AddLessonModal({ module, onClose, onLessonAdd }) {
     const [title, setTitle] = useState('');
@@ -22,9 +23,14 @@ function AddLessonModal({ module, onClose, onLessonAdd }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl">
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Adicionar Aula ao Módulo: "{module.title}"</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+                <header className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Adicionar Aula ao Módulo: "{module.title}"</h2>
+                    <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </header>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         <div>
@@ -54,7 +60,7 @@ function AddLessonModal({ module, onClose, onLessonAdd }) {
                             Cancelar
                         </button>
                         <button type="submit" disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
-                            {loading ? "Adicionando..." : "Adicionar Aula"}
+                            {loading ? "A Adicionar..." : "Adicionar Aula"}
                         </button>
                     </div>
                 </form>

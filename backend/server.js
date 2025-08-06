@@ -507,7 +507,54 @@ app.delete('/api/courses', async (req, res) => {
 });
 
 
-// --- INICIA O SERVIDOR ---
+// Rota para EDITAR um Módulo
+app.put('/api/modules/:moduleId', async (req, res) => {
+    try {
+        const { moduleId } = req.params;
+        const { title } = req.body;
+        await db('modules').where({ id: moduleId }).update({ title });
+        res.status(200).json({ message: 'Módulo atualizado com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao atualizar o módulo.' });
+    }
+});
+
+// Rota para EXCLUIR um Módulo
+app.delete('/api/modules/:moduleId', async (req, res) => {
+    try {
+        const { moduleId } = req.params;
+        await db('modules').where({ id: moduleId }).del();
+        res.status(200).json({ message: 'Módulo excluído com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao excluir o módulo.' });
+    }
+});
+
+// Rota para EDITAR uma Aula
+app.put('/api/lessons/:lessonId', async (req, res) => {
+    try {
+        const { lessonId } = req.params;
+        const { title, content } = req.body;
+        await db('lessons').where({ id: lessonId }).update({ title, content });
+        res.status(200).json({ message: 'Aula atualizada com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao atualizar a aula.' });
+    }
+});
+
+// Rota para EXCLUIR uma Aula
+app.delete('/api/lessons/:lessonId', async (req, res) => {
+    try {
+        const { lessonId } = req.params;
+        await db('lessons').where({ id: lessonId }).del();
+        res.status(200).json({ message: 'Aula excluída com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao excluir a aula.' });
+    }
+});
+
+// ... (o resto das suas rotas existentes)
+
 server.listen(PORT, () => {
-  console.log(`Servidor a rodar e a ouvir na porta ${PORT}`);
+  console.log(`Servidor a rodar na porta ${PORT}`);
 });
